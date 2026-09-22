@@ -1,0 +1,47 @@
+/* Page background */
+body {
+  background: #fff5f9;
+}
+
+/* Chunky sticker buttons */
+.mantine-Button-root {
+  border: 3px solid #2b2b2b;
+  box-shadow: 4px 4px 0 #2b2b2b;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mantine-Button-root:active {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 #2b2b2b;
+}
+
+/* Chunky sticker cards */
+.mantine-Card-root {
+  border: 3px solid #2b2b2b;
+  box-shadow: 6px 6px 0 #2b2b2b;
+}
+
+/* Sidebar links (desktop) */
+.mantine-NavLink-root {
+  border-radius: 999px;
+  margin-bottom: 6px;
+  font-weight: 500;
+  transition: transform 0.15s ease;
+}
+
+.mantine-NavLink-root[data-active] {
+  border: 2px solid #2b2b2b;
+  box-shadow: 3px 3px 0 #2b2b2b;
+}
+
+/* Hover wobbles, only on devices with a real mouse,
+   so effects don't get stuck after a tap on phones */
+@media (hover: hover) {
+  .mantine-Button-root:hover {
+    transform: rotate(-2deg) scale(1.05);
+  }
+
+  .mantine-NavLink-root:hover {
+    transform: translateX(4px) rotate(-1deg);
+  }
+}
