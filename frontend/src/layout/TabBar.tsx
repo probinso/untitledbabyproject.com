@@ -1,6 +1,6 @@
 import { AppShell, Group, UnstyledButton } from "@mantine/core";
 import { Link, useLocation } from "react-router";
-import { activities } from "../activities";
+import { activities, isActivePath } from "../activities";
 import "./TabBar.css";
 
 export default function TabBar() {
@@ -15,7 +15,7 @@ export default function TabBar() {
             component={Link}
             to={a.path}
             className="tab"
-            data-active={pathname === a.path || undefined}
+            data-active={isActivePath(pathname, a.path) || undefined}
           >
             <span className="tab-emoji">{a.emoji}</span>
             <span className="tab-label">{a.label}</span>

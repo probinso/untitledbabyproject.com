@@ -1,11 +1,12 @@
 import { useEffect, useRef } from "react";
 import { Alert, Button, Group, Loader, Progress, Stack, Text, Title } from "@mantine/core";
-import { useVideoRecorder } from "../hooks/useVideoRecorder";
+import { useVideoRecorder } from "./useVideoRecorder";
 import "./VideoRecorder.css";
 
 interface VideoRecorderProps {
   maxSeconds?: number;
   countdownSeconds?: number;
+  initialVideo?: Blob;
   onSubmit: (video: Blob) => Promise<void>;
 }
 
@@ -18,6 +19,7 @@ function formatTime(seconds: number) {
 export default function VideoRecorder({
   maxSeconds = 30,
   countdownSeconds = 3,
+  initialVideo,
   onSubmit,
 }: VideoRecorderProps) {
   const rec = useVideoRecorder({ maxSeconds, countdownSeconds });
@@ -25,6 +27,11 @@ export default function VideoRecorder({
 
   const isLive = ["preview", "countdown", "recording"].includes(rec.status);
   const isReview = rec.status === "review" || rec.status === "submitting";
+
+  // Show whatever was already recorded for this prompt, if anything.
+  useEffect(() => {
+    if (initialVideo) rec.loadVideo(initialVideo);
+  }, [initialVideo]);
 
   // Connect the camera stream to the live preview.
   useEffect(() => {

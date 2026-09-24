@@ -89,6 +89,16 @@ export function useVideoRecorder({
     setVideoUrl(null);
   }
 
+  // Drops a previously-recorded video straight into review, bypassing the camera.
+  function loadVideo(blob: Blob) {
+    discardVideo();
+    videoRef.current = blob;
+    const url = URL.createObjectURL(blob);
+    videoUrlRef.current = url;
+    setVideoUrl(url);
+    setStatus("review");
+  }
+
   async function startCamera(facing: FacingMode = facingMode) {
     setError(null);
 
@@ -255,5 +265,6 @@ export function useVideoRecorder({
     retake,
     submit,
     reset,
+    loadVideo,
   };
 }

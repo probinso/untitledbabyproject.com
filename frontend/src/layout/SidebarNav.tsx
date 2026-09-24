@@ -1,6 +1,6 @@
 import { AppShell, NavLink } from "@mantine/core";
 import { Link, useLocation } from "react-router";
-import { activities } from "../activities";
+import { activities, isActivePath } from "../activities";
 
 export default function SidebarNav() {
   const { pathname } = useLocation();
@@ -14,7 +14,7 @@ export default function SidebarNav() {
           to={a.path}
           label={a.label}
           leftSection={<span>{a.emoji}</span>}
-          active={pathname === a.path}
+          active={isActivePath(pathname, a.path)}
         />
       ))}
     </AppShell.Navbar>
