@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Title, Stack, Card, Button } from "@mantine/core";
 import Form from "@rjsf/mantine";
 import validator from "@rjsf/validator-ajv8";
@@ -6,6 +6,8 @@ import type { RJSFSchema, UiSchema } from "@rjsf/utils";
 import { getIdentityToken } from "../identity";
 import { apiGet, apiPost } from "../api";
 import { readStorage, writeStorage } from "../storage";
+import { useSubmitOnLeave } from "../useSubmitOnLeave";
+import { isComplete } from "../rjsfComplete";
 
 const STORAGE_KEY = "guestbook-draft";
 
@@ -41,6 +43,15 @@ function fetchEntry(token: string): Promise<StoredGuestbookEntry | null> {
 
 export default function Guestbook() {
   const [formData, setFormData] = useState<GuestbookEntry | undefined>(loadDraft);
+  // Typed as `any`: we only ever call .submit(), and @rjsf/mantine's Form
+  // export doesn't cleanly expose its underlying @rjsf/core class type for
+  // TypeScript to match a ref against.
+  const formRef = useRef<any>(null);
+
+  // Switching to another activity submits this one first, but only if it's
+  // actually complete — the form's own submit() still skips onSubmit
+  // otherwise, this just avoids intercepting navigation for nothing.
+  useSubmitOnLeave(isComplete(schema, formData), () => formRef.current?.submit());
 
   // Pull in whatever was last submitted under this identity, in case it
   // came from another browser/device. AppLayout guarantees we're logged in.
@@ -68,6 +79,7 @@ export default function Guestbook() {
 
       <Card maw={480}>
         <Form
+          ref={formRef}
           schema={schema}
           uiSchema={uiSchema}
           validator={validator}

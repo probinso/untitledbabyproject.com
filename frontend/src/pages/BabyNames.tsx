@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, Title, Text, Stack, Button, List } from "@mantine/core";
 import Form from "@rjsf/mantine";
 import validator from "@rjsf/validator-ajv8";
@@ -10,6 +10,8 @@ import PopularTakeover from "../components/names/PopularTakeover";
 import { presidentialNames } from "../components/names/presidentialNames";
 import PresidentialNote from "../components/names/PresidentialNote";
 import { containsBlockedWord } from "../components/names/blockedWords";
+import { useSubmitOnLeave } from "../useSubmitOnLeave";
+import { isComplete } from "../rjsfComplete";
 
 interface NameTally {
   name: string;
@@ -29,10 +31,20 @@ function normalize(name: string): string {
 }
 
 export default function BabyNames() {
+  const [formData, setFormData] = useState<{ name?: string }>();
   const [names, setNames] = useState<NameTally[]>([]);
   const [celebrating, setCelebrating] = useState<string | null>(null);
   const [presidential, setPresidential] = useState<string | null>(null);
   const [blocked, setBlocked] = useState(false);
+  // Typed as `any`: we only ever call .submit(), and @rjsf/mantine's Form
+  // export doesn't cleanly expose its underlying @rjsf/core class type for
+  // TypeScript to match a ref against.
+  const formRef = useRef<any>(null);
+
+  // Switching to another activity submits this one first, but only if
+  // there's actually a name typed — the form's own submit() still no-ops
+  // if it's invalid, this just avoids intercepting navigation for nothing.
+  useSubmitOnLeave(isComplete(schema, formData), () => formRef.current?.submit());
 
   // Subscribes to live tallies: the backend pushes the full list whenever
   // anyone (including us) submits a name, so this stays in sync across tabs.
@@ -69,7 +81,14 @@ export default function BabyNames() {
         <Stack>
           <Title order={2}>Oh NoOOo! We forgot kiddos name!</Title>
           <Text c="dimmed">Help us remember by sharing your favorites!</Text>
-          <Form schema={schema} validator={validator} onSubmit={handleSubmit}>
+          <Form
+            ref={formRef}
+            schema={schema}
+            validator={validator}
+            formData={formData}
+            onChange={({ formData }) => setFormData(formData)}
+            onSubmit={handleSubmit}
+          >
             <Button type="submit">Out with the Bath Water</Button>
           </Form>
           {blocked && <Text c="red">Let's keep it family-friendly — try another name.</Text>}

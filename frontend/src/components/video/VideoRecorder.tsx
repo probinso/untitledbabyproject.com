@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Alert, Button, Group, Loader, Progress, Stack, Text, Title } from "@mantine/core";
 import { useVideoRecorder } from "./useVideoRecorder";
+import { useSubmitOnLeave } from "../../useSubmitOnLeave";
 import "./VideoRecorder.css";
 
 interface VideoRecorderProps {
@@ -27,6 +28,10 @@ export default function VideoRecorder({
 
   const isLive = ["preview", "countdown", "recording"].includes(rec.status);
   const isReview = rec.status === "review" || rec.status === "submitting";
+
+  // Switching to another activity/category sends a finished-but-unsent
+  // recording first, so a completed take is never silently lost.
+  useSubmitOnLeave(rec.status === "review", () => rec.submit(onSubmit));
 
   // Show whatever was already recorded for this prompt, if anything.
   useEffect(() => {
