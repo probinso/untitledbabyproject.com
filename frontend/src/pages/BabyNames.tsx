@@ -5,9 +5,9 @@ import validator from "@rjsf/validator-ajv8";
 import type { RJSFSchema } from "@rjsf/utils";
 import { getIdentityToken } from "../identity";
 import { apiPost, apiUrl } from "../api";
-import { popularNames } from "../components/names/PopularityList";
+import { popularNames } from "../components/names/popularNames";
 import PopularTakeover from "../components/names/PopularTakeover";
-import { presidentialNames } from "../components/names/PresidentialNames";
+import { presidentialNames } from "../components/names/presidentialNames";
 import PresidentialNote from "../components/names/PresidentialNote";
 import { containsBlockedWord } from "../components/names/blockedWords";
 
