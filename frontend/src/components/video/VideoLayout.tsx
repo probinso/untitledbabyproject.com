@@ -1,16 +1,19 @@
 import { Title, Text, Stack, Select } from "@mantine/core";
 import { Outlet, useLocation, useNavigate } from "react-router";
 import { videoPrompts, videoPromptHref } from "./videoPrompts";
+import { icons } from "../../assets/icons";
+import { useThemed } from "../../assets/themed";
 
 export default function VideoLayout() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const video = useThemed(icons.video);
 
   const current = videoPrompts.find((p) => pathname === videoPromptHref(p.path))?.path ?? null;
 
   return (
     <Stack>
-      <Title>🎥 Video Drop</Title>
+      <Title>{video} Video Drop</Title>
       <Text>Pick a prompt and record a quick video for the family!</Text>
 
       <Select

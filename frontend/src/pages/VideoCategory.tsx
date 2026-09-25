@@ -15,9 +15,8 @@ interface VideoEntry {
 }
 
 async function fetchExistingVideo(category: string): Promise<Blob | undefined> {
-  const token = getIdentityToken();
-  if (!token) return undefined;
-  const entry = await apiGet<VideoEntry | null>("/videos", { token, category });
+  if (!getIdentityToken()) return undefined;
+  const entry = await apiGet<VideoEntry | null>("/videos", { category });
   if (!entry) return undefined;
   const res = await fetch(apiUrl(`/videos/blob/${entry.digest}`));
   return res.blob();

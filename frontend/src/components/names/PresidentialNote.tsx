@@ -1,5 +1,6 @@
 import NameOverlay from "./NameOverlay";
-import presidentialPortrait from "./presidential-portrait.png";
+import { images } from "../../assets/images";
+import { useThemed } from "../../assets/themed";
 
 interface Props {
   name: string;
@@ -7,9 +8,11 @@ interface Props {
 }
 
 export default function PresidentialNote({ name, onDone }: Props) {
+  const portrait = useThemed(images.presidentialPortrait);
+
   return (
     <NameOverlay
-      image={presidentialPortrait}
+      image={portrait}
       imageAlt="Presidential inauguration"
       title={`"${name}" has presidential energy... lets try again...`}
       subtitle="No president is as impressive as our kiddo."

@@ -1,7 +1,7 @@
 import { Routes, Route } from "react-router";
-import { Title } from "@mantine/core";
 import AppLayout from "./layout/AppLayout";
 import Login from "./pages/Login";
+import NotFound from "./pages/NotFound";
 import VideoHome from "./pages/VideoHome";
 import VideoCategory from "./pages/VideoCategory";
 import VideoLayout from "./components/video/VideoLayout";
@@ -24,7 +24,7 @@ export default function App() {
             <Route key={p.path} path={p.path} element={<VideoCategory prompt={p} />} />
           ))}
         </Route>
-        <Route path="*" element={<Title>🙈 Nothing here!</Title>} />
+        <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
   );

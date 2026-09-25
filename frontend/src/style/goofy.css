@@ -3,6 +3,20 @@ body {
   background: #fff5f9;
 }
 
+:root[data-mantine-color-scheme="dark"] body {
+  background: #2b1f28;
+}
+
+/* Spooky page titles in dark mode only — Creepster is a decorative display
+   face that's illegible at smaller sizes or across a full sentence, so it's
+   scoped to h1 (short page titles like "Guestbook") and not the rest of the
+   heading scale, which this app uses for longer phrases (e.g. "Oh NoOOo! We
+   forgot kiddos name!"). Those stay in the readable font. */
+:root[data-mantine-color-scheme="dark"] h1 {
+  font-family: "Creepster", cursive;
+  letter-spacing: 0.03em;
+}
+
 /* Chunky sticker buttons */
 .mantine-Button-root {
   border: 3px solid #2b2b2b;

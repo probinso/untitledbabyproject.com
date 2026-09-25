@@ -1,5 +1,6 @@
 import NameOverlay from "./NameOverlay";
-import ssaLogo from "./ssa-logo.png";
+import { images } from "../../assets/images";
+import { useThemed } from "../../assets/themed";
 
 interface Props {
   name: string;
@@ -7,6 +8,8 @@ interface Props {
 }
 
 export default function PopularTakeover({ name, onDone }: Props) {
+  const ssaLogo = useThemed(images.ssaLogo);
+
   return (
     <NameOverlay
       image={ssaLogo}

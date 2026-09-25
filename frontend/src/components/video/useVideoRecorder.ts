@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useInterval } from "@mantine/hooks";
 
 export type RecorderStatus =
   | "idle" // camera off, waiting to start
@@ -67,14 +68,28 @@ export function useVideoRecorder({
   const chunksRef = useRef<Blob[]>([]);
   const videoRef = useRef<Blob | null>(null);
   const videoUrlRef = useRef<string | null>(null);
-  const timerRef = useRef<number | null>(null);
+  const recordingStartedAtRef = useRef(0);
 
-  function clearTimer() {
-    if (timerRef.current !== null) {
-      window.clearInterval(timerRef.current);
-      timerRef.current = null;
+  // The 3-2-1 before recording, and the elapsed-time tracker while
+  // recording, are two distinct timers — each gets its own interval rather
+  // than sharing one hand-managed window.setInterval handle.
+  const countdownTimer = useInterval(() => {
+    // Reads `countdown` from the closure rather than a setState updater —
+    // beginRecording() has side effects (starts another timer, calls other
+    // setters), and those don't belong inside a state updater function.
+    if (countdown <= 1) {
+      countdownTimer.stop();
+      beginRecording();
+    } else {
+      setCountdown(countdown - 1);
     }
-  }
+  }, 1000);
+
+  const recordingTimer = useInterval(() => {
+    const elapsed = (Date.now() - recordingStartedAtRef.current) / 1000;
+    setSecondsLeft(Math.max(0, Math.ceil(maxSeconds - elapsed)));
+    if (elapsed >= maxSeconds) stopRecording();
+  }, 250);
 
   function stopCamera() {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -165,13 +180,8 @@ export function useVideoRecorder({
     recorder.start(1000); // hand over data every second
     setStatus("recording");
     setSecondsLeft(maxSeconds);
-
-    const startedAt = Date.now();
-    timerRef.current = window.setInterval(() => {
-      const elapsed = (Date.now() - startedAt) / 1000;
-      setSecondsLeft(Math.max(0, Math.ceil(maxSeconds - elapsed)));
-      if (elapsed >= maxSeconds) stopRecording();
-    }, 250);
+    recordingStartedAtRef.current = Date.now();
+    recordingTimer.start();
   }
 
   function startRecording() {
@@ -179,28 +189,20 @@ export function useVideoRecorder({
       beginRecording();
       return;
     }
-    let remaining = countdownSeconds;
-    setCountdown(remaining);
+    setCountdown(countdownSeconds);
     setStatus("countdown");
-    timerRef.current = window.setInterval(() => {
-      remaining -= 1;
-      if (remaining <= 0) {
-        clearTimer();
-        beginRecording();
-      } else {
-        setCountdown(remaining);
-      }
-    }, 1000);
+    countdownTimer.start();
   }
 
   function stopRecording() {
-    clearTimer();
+    recordingTimer.stop();
     const recorder = recorderRef.current;
     if (recorder && recorder.state !== "inactive") recorder.stop();
   }
 
   function cancel() {
-    clearTimer();
+    countdownTimer.stop();
+    recordingTimer.stop();
     stopCamera();
     setStatus("idle");
   }
@@ -236,7 +238,8 @@ export function useVideoRecorder({
   // Clean up if the component disappears (e.g. switching activities).
   useEffect(() => {
     return () => {
-      clearTimer();
+      countdownTimer.stop();
+      recordingTimer.stop();
       const recorder = recorderRef.current;
       if (recorder && recorder.state !== "inactive") {
         recorder.onstop = null;
