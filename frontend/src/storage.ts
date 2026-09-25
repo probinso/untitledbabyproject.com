@@ -15,6 +15,14 @@ export function writeStorage(key: string, value: unknown): void {
   }
 }
 
+export function removeStorage(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // ignore storage failures (e.g. private browsing)
+  }
+}
+
 export function clearStorage(): void {
   try {
     localStorage.clear();

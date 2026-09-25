@@ -1,4 +1,3 @@
-import asyncio
 import json
 
 import httpx
@@ -9,6 +8,7 @@ from pydantic import BaseModel
 
 import spotify
 from blobstore import BlobStore, InMemoryBlobStore
+from broadcaster import Broadcaster
 
 app = FastAPI()
 
@@ -70,7 +70,6 @@ class NameTally(BaseModel):
 
 votes_by_name: dict[str, set[str]] = {}
 name_order: list[str] = []
-subscribers: list[asyncio.Queue] = []
 
 
 def current_tallies() -> list[NameTally]:
@@ -81,10 +80,7 @@ def tallies_json() -> str:
     return json.dumps([tally.model_dump() for tally in current_tallies()])
 
 
-async def broadcast_tallies() -> None:
-    payload = tallies_json()
-    for queue in subscribers:
-        await queue.put(payload)
+names_feed = Broadcaster(tallies_json)
 
 
 @app.get("/names")
@@ -106,30 +102,13 @@ async def submit_name(submission: NameSubmission, token: str = Depends(get_token
         name_order.remove(submission.name)
     name_order.append(submission.name)
 
-    await broadcast_tallies()
+    await names_feed.broadcast()
     return NameTally(name=submission.name, count=len(tokens))
 
 
 @app.get("/names/stream")
 async def stream_names(request: Request) -> StreamingResponse:
-    # No token here: browsers' EventSource can't send custom headers, and
-    # this is a public read anyway — nothing about it is per-identity.
-    queue: asyncio.Queue = asyncio.Queue()
-    subscribers.append(queue)
-
-    async def event_stream():
-        try:
-            yield f"data: {tallies_json()}\n\n"
-            while not await request.is_disconnected():
-                try:
-                    payload = await asyncio.wait_for(queue.get(), timeout=15)
-                except asyncio.TimeoutError:
-                    continue
-                yield f"data: {payload}\n\n"
-        finally:
-            subscribers.remove(queue)
-
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+    return await names_feed.stream(request)
 
 
 class VideoEntry(Entry):
@@ -188,7 +167,6 @@ class LullabyTally(BaseModel):
 lullabies_by_uri: dict[str, LullabySubmission] = {}
 votes_by_lullaby: dict[str, set[str]] = {}
 lullaby_order: list[str] = []
-lullaby_subscribers: list[asyncio.Queue] = []
 
 
 def current_lullabies() -> list[LullabyTally]:
@@ -207,10 +185,7 @@ def lullabies_json() -> str:
     return json.dumps([tally.model_dump() for tally in current_lullabies()])
 
 
-async def broadcast_lullabies() -> None:
-    payload = lullabies_json()
-    for queue in lullaby_subscribers:
-        await queue.put(payload)
+lullabies_feed = Broadcaster(lullabies_json)
 
 
 @app.get("/lullabies")
@@ -230,13 +205,10 @@ def get_lullaby_playlist() -> dict[str, str | None]:
 async def search_lullabies(q: str) -> list[dict]:
     if not q.strip():
         return []
-    try:
-        return await spotify.search_tracks(q)
-    except spotify.SpotifyNotConfigured:
-        # Spotify isn't configured yet — a stub list keeps the search box
-        # (and the rest of the page) usable end-to-end during setup, rather
-        # than surfacing an error the frontend has to know how to handle.
-        return spotify.stub_search(q)
+    # Falling back to a stub list when Spotify isn't configured yet lives
+    # inside spotify.search itself, same as spotify.add_track absorbing the
+    # stub case below — this endpoint doesn't need to know which happened.
+    return await spotify.search(q)
 
 
 @app.post("/lullabies")
@@ -247,7 +219,7 @@ async def submit_lullaby(submission: LullabySubmission, token: str = Depends(get
     # from the same visitor doesn't add the track to Spotify again or bump
     # its position, it just no-ops back to the current tally.
     if token not in votes:
-        if submission.uri not in lullabies_by_uri and not spotify.is_stub_uri(submission.uri):
+        if submission.uri not in lullabies_by_uri:
             try:
                 await spotify.add_track(submission.uri)
             except (spotify.SpotifyNotConfigured, spotify.SpotifyNotAuthorized) as exc:
@@ -261,7 +233,7 @@ async def submit_lullaby(submission: LullabySubmission, token: str = Depends(get
             lullaby_order.remove(submission.uri)
         lullaby_order.append(submission.uri)
 
-        await broadcast_lullabies()
+        await lullabies_feed.broadcast()
 
     entry = lullabies_by_uri[submission.uri]
     return LullabyTally(uri=entry.uri, title=entry.title, artist=entry.artist, count=len(votes))
@@ -269,24 +241,7 @@ async def submit_lullaby(submission: LullabySubmission, token: str = Depends(get
 
 @app.get("/lullabies/stream")
 async def stream_lullabies(request: Request) -> StreamingResponse:
-    # No token here, same as /names/stream: EventSource can't send custom
-    # headers, and this is a public read anyway.
-    queue: asyncio.Queue = asyncio.Queue()
-    lullaby_subscribers.append(queue)
-
-    async def event_stream():
-        try:
-            yield f"data: {lullabies_json()}\n\n"
-            while not await request.is_disconnected():
-                try:
-                    payload = await asyncio.wait_for(queue.get(), timeout=15)
-                except asyncio.TimeoutError:
-                    continue
-                yield f"data: {payload}\n\n"
-        finally:
-            lullaby_subscribers.remove(queue)
-
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+    return await lullabies_feed.stream(request)
 
 
 @app.get("/spotify/authorize")

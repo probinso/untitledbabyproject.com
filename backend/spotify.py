@@ -3,6 +3,11 @@ searching tracks (an app-only Client Credentials token, no user context) and
 adding a track to one specific playlist (a real Spotify account's own
 authorization, obtained once via /spotify/authorize and kept as a refresh
 token).
+
+The two public entry points, `search` and `add_track`, absorb "Spotify isn't
+configured/authorized yet" themselves (falling back to a stub list, or
+no-op'ing a stub pick) — callers in main.py never need to branch on whether
+Spotify is actually set up.
 """
 
 import base64
@@ -42,11 +47,11 @@ STUB_SONGS = [
 # gitignored rather than lost on every backend restart.
 TOKEN_FILE = Path(__file__).parent / ".spotify_refresh_token"
 
-_app_token: str | None = None
-_app_token_expires_at: float = 0.0
-
-_user_token: str | None = None
-_user_token_expires_at: float = 0.0
+# One shared client for every Spotify call, so repeated calls (every
+# debounced keystroke search, every add) reuse a pooled connection instead
+# of paying a fresh TCP+TLS handshake each time. Never explicitly closed —
+# same "no cleanup, in-memory prototype" stance as the rest of this backend.
+_client = httpx.AsyncClient()
 
 
 class SpotifyNotConfigured(Exception):
@@ -95,86 +100,89 @@ def authorize_url(state: str) -> str:
     return f"https://accounts.spotify.com/authorize?{params}"
 
 
+class _CachedToken:
+    """A short-lived Spotify access token, held until just before it
+    expires. Shared shape for the app token (Client Credentials) and the
+    user token (refresh token) — they differ only in how they're fetched."""
+
+    def __init__(self) -> None:
+        self._value: str | None = None
+        self._expires_at: float = 0.0
+
+    def get(self) -> str | None:
+        return self._value if self._value and time.time() < self._expires_at else None
+
+    def set(self, payload: dict) -> None:
+        self._value = payload["access_token"]
+        self._expires_at = time.time() + payload["expires_in"] - 30
+
+
+_app_token = _CachedToken()
+_user_token = _CachedToken()
+
+
+async def _request_token(data: dict) -> dict:
+    response = await _client.post(
+        "https://accounts.spotify.com/api/token",
+        headers=_basic_auth_header(),
+        data=data,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 async def exchange_code(code: str) -> None:
     """Trades a one-time auth code for a refresh token and persists it —
     called once, from /spotify/callback, by whoever owns the playlist."""
     _require_client_credentials()
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "https://accounts.spotify.com/api/token",
-            headers=_basic_auth_header(),
-            data={"grant_type": "authorization_code", "code": code, "redirect_uri": REDIRECT_URI},
-        )
-        response.raise_for_status()
-        payload = response.json()
-
+    payload = await _request_token(
+        {"grant_type": "authorization_code", "code": code, "redirect_uri": REDIRECT_URI}
+    )
     _write_refresh_token(payload["refresh_token"])
-    global _user_token, _user_token_expires_at
-    _user_token = payload["access_token"]
-    _user_token_expires_at = time.time() + payload["expires_in"] - 30
+    _user_token.set(payload)
 
 
 async def _get_app_token() -> str:
     """Client Credentials token: app-only, no user context, used for search."""
-    global _app_token, _app_token_expires_at
     _require_client_credentials()
+    if token := _app_token.get():
+        return token
 
-    if _app_token and time.time() < _app_token_expires_at:
-        return _app_token
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "https://accounts.spotify.com/api/token",
-            headers=_basic_auth_header(),
-            data={"grant_type": "client_credentials"},
-        )
-        response.raise_for_status()
-        payload = response.json()
-
-    _app_token = payload["access_token"]
-    _app_token_expires_at = time.time() + payload["expires_in"] - 30
-    return _app_token
+    payload = await _request_token({"grant_type": "client_credentials"})
+    _app_token.set(payload)
+    return payload["access_token"]
 
 
 async def _get_user_token() -> str:
     """Access token for the authorized playlist owner, refreshed as needed."""
-    global _user_token, _user_token_expires_at
     _require_client_credentials()
-
-    if _user_token and time.time() < _user_token_expires_at:
-        return _user_token
+    if token := _user_token.get():
+        return token
 
     refresh_token = _read_refresh_token()
     if not refresh_token:
         raise SpotifyNotAuthorized("No Spotify authorization on file — visit /spotify/authorize")
 
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "https://accounts.spotify.com/api/token",
-            headers=_basic_auth_header(),
-            data={"grant_type": "refresh_token", "refresh_token": refresh_token},
-        )
-        response.raise_for_status()
-        payload = response.json()
-
-    _user_token = payload["access_token"]
-    _user_token_expires_at = time.time() + payload["expires_in"] - 30
+    payload = await _request_token({"grant_type": "refresh_token", "refresh_token": refresh_token})
+    _user_token.set(payload)
     # Spotify occasionally rotates the refresh token on use.
     if payload.get("refresh_token"):
         _write_refresh_token(payload["refresh_token"])
-    return _user_token
+    return payload["access_token"]
 
 
 async def search_tracks(query: str, limit: int = 8) -> list[dict]:
+    """The real Spotify search. Raises SpotifyNotConfigured if the app
+    isn't set up yet — call `search` instead unless you want that to
+    propagate to your caller."""
     token = await _get_app_token()
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            "https://api.spotify.com/v1/search",
-            headers={"Authorization": f"Bearer {token}"},
-            params={"q": query, "type": "track", "limit": limit},
-        )
-        response.raise_for_status()
-        payload = response.json()
+    response = await _client.get(
+        "https://api.spotify.com/v1/search",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"q": query, "type": "track", "limit": limit},
+    )
+    response.raise_for_status()
+    payload = response.json()
 
     return [
         {
@@ -187,20 +195,6 @@ async def search_tracks(query: str, limit: int = 8) -> list[dict]:
     ]
 
 
-async def add_track(uri: str) -> None:
-    if not PLAYLIST_ID:
-        raise SpotifyNotConfigured("SPOTIFY_PLAYLIST_ID is not set")
-
-    token = await _get_user_token()
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks",
-            headers={"Authorization": f"Bearer {token}"},
-            json={"uris": [uri]},
-        )
-        response.raise_for_status()
-
-
 def is_stub_uri(uri: str) -> bool:
     return uri.startswith("stub:")
 
@@ -211,3 +205,31 @@ def stub_search(query: str, limit: int = 8) -> list[dict]:
     if not matches:
         matches = random.sample(STUB_SONGS, min(limit, len(STUB_SONGS)))
     return matches[:limit]
+
+
+async def search(query: str, limit: int = 8) -> list[dict]:
+    """Public entry point: real Spotify results, or the stub list if
+    Spotify isn't configured yet. Callers never need to know which."""
+    try:
+        return await search_tracks(query, limit)
+    except SpotifyNotConfigured:
+        return stub_search(query, limit)
+
+
+async def add_track(uri: str) -> None:
+    """Adds a track to the configured playlist. A stub URI (only ever
+    handed back by the stub search fallback above) is a no-op — there's
+    nothing real to save."""
+    if is_stub_uri(uri):
+        return
+
+    if not PLAYLIST_ID:
+        raise SpotifyNotConfigured("SPOTIFY_PLAYLIST_ID is not set")
+
+    token = await _get_user_token()
+    response = await _client.post(
+        f"https://api.spotify.com/v1/playlists/{PLAYLIST_ID}/tracks",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"uris": [uri]},
+    )
+    response.raise_for_status()

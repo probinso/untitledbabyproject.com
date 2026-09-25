@@ -1,18 +1,30 @@
-/* Page background */
+/* Page background, one pale tint per theme. Mantine itself is locked to
+   its light color scheme (see main.tsx) — its text/card/border variables
+   don't change with the theme — so these stay light enough for that
+   default (dark-on-light) text to stay readable no matter which is picked. */
 body {
   background: #fff5f9;
 }
 
-:root[data-mantine-color-scheme="dark"] body {
-  background: #2b1f28;
+:root[data-theme="magic"] body {
+  background: #f5eeff;
 }
 
-/* Spooky page titles in dark mode only — Creepster is a decorative display
-   face that's illegible at smaller sizes or across a full sentence, so it's
-   scoped to h1 (short page titles like "Guestbook") and not the rest of the
-   heading scale, which this app uses for longer phrases (e.g. "Oh NoOOo! We
-   forgot kiddos name!"). Those stay in the readable font. */
-:root[data-mantine-color-scheme="dark"] h1 {
+:root[data-theme="underwater"] body {
+  background: #e8faff;
+}
+
+:root[data-theme="forest"] body {
+  background: #eef9ec;
+}
+
+/* Whimsical page titles for the Magic theme only — Creepster is a
+   decorative display face that's illegible at smaller sizes or across a
+   full sentence, so it's scoped to h1 (short page titles like "Guestbook")
+   and not the rest of the heading scale, which this app uses for longer
+   phrases (e.g. "Oh NoOOo! We forgot kiddos name!"). Those stay in the
+   readable font, as do h1s in every other theme. */
+:root[data-theme="magic"] h1 {
   font-family: "Creepster", cursive;
   letter-spacing: 0.03em;
 }

@@ -1,12 +1,10 @@
 import type { Themed } from "./themed";
 import ssaLogoLight from "./ssa-logo-light.png";
-import ssaLogoDark from "./ssa-logo-dark.png";
 import presidentialPortraitLight from "./presidential-portrait-light.png";
-import presidentialPortraitDark from "./presidential-portrait-dark.png";
 
-// Dark variants are stubs (same file as light) until real dark-mode art
-// replaces them — swap the dark: import above when that's ready.
+// No theme has its own take on these yet, so every theme just falls back
+// to `default` — add a `magic`/`underwater`/`forest` key here once one does.
 export const images = {
-  ssaLogo: { light: ssaLogoLight, dark: ssaLogoDark },
-  presidentialPortrait: { light: presidentialPortraitLight, dark: presidentialPortraitDark },
+  ssaLogo: { default: ssaLogoLight },
+  presidentialPortrait: { default: presidentialPortraitLight },
 } satisfies Record<string, Themed<string>>;

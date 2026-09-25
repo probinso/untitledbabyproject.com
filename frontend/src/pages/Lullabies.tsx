@@ -4,7 +4,7 @@ import { useDebouncedValue } from "@mantine/hooks";
 import { getIdentityToken } from "../identity";
 import { apiGet, apiPost, apiUrl } from "../api";
 import { icons } from "../assets/icons";
-import { resolveThemed, useColorScheme } from "../assets/themed";
+import { resolveThemed, useTheme } from "../assets/themed";
 
 interface SearchResult {
   uri: string;
@@ -28,7 +28,7 @@ export default function Lullabies() {
   const [adding, setAdding] = useState<string | null>(null);
   const [playlist, setPlaylist] = useState<LullabyTally[]>([]);
   const [playlistUrl, setPlaylistUrl] = useState<string | null>(null);
-  const scheme = useColorScheme();
+  const theme = useTheme();
 
   // Subscribes to the live playlist: the backend pushes the full list
   // whenever anyone adds a track, same as Baby Names' live tallies.
@@ -79,7 +79,7 @@ export default function Lullabies() {
     <Stack maw={480}>
       <Card>
         <Stack>
-          <Title order={2}>{resolveThemed(icons.lullabies, scheme)} Lulubies Playlist</Title>
+          <Title order={2}>{resolveThemed(icons.lullabies, theme)} Lulubies Playlist</Title>
           <Text c="dimmed">Search for a song to add it to the sleep-time playlist!</Text>
           <TextInput
             placeholder="Search Spotify..."

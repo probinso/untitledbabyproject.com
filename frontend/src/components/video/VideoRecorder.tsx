@@ -3,7 +3,7 @@ import { Alert, Button, Group, Loader, Progress, Stack, Text, Title } from "@man
 import { useVideoRecorder } from "./useVideoRecorder";
 import { useSubmitOnLeave } from "../../useSubmitOnLeave";
 import { icons } from "../../assets/icons";
-import { resolveThemed, useColorScheme } from "../../assets/themed";
+import { resolveThemed, useTheme } from "../../assets/themed";
 import "./VideoRecorder.css";
 
 interface VideoRecorderProps {
@@ -27,8 +27,8 @@ export default function VideoRecorder({
 }: VideoRecorderProps) {
   const rec = useVideoRecorder({ maxSeconds, countdownSeconds });
   const liveRef = useRef<HTMLVideoElement>(null);
-  const scheme = useColorScheme();
-  const icon = (name: keyof typeof icons) => resolveThemed(icons[name], scheme);
+  const theme = useTheme();
+  const icon = (name: keyof typeof icons) => resolveThemed(icons[name], theme);
 
   const isLive = ["preview", "countdown", "recording"].includes(rec.status);
   const isReview = rec.status === "review" || rec.status === "submitting";

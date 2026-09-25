@@ -10,7 +10,7 @@ import { readStorage, writeStorage } from "../storage";
 import { useSubmitOnLeave } from "../useSubmitOnLeave";
 import { isComplete, type RjsfFormInstance } from "../rjsf";
 import { icons } from "../assets/icons";
-import { resolveThemed, useColorScheme } from "../assets/themed";
+import { resolveThemed, useTheme } from "../assets/themed";
 
 const STORAGE_KEY = "guestbook-draft";
 
@@ -47,7 +47,7 @@ function fetchEntry(): Promise<StoredGuestbookEntry | null> {
 export default function Guestbook() {
   const [formData, setFormData] = useState<GuestbookEntry | undefined>(loadDraft);
   const formRef = useRef<RjsfFormInstance>(null);
-  const scheme = useColorScheme();
+  const theme = useTheme();
 
   // Switching to another activity submits this one first, but only if it's
   // actually complete — the form's own submit() still skips onSubmit
@@ -75,7 +75,7 @@ export default function Guestbook() {
 
   return (
     <Stack>
-      <Title>{resolveThemed(icons.guestbook, scheme)} Guestbook</Title>
+      <Title>{resolveThemed(icons.guestbook, theme)} Guestbook</Title>
 
       <Card maw={480}>
         <Form
@@ -87,7 +87,7 @@ export default function Guestbook() {
           onChange={handleChange}
           onSubmit={handleSubmit}
         >
-          <Button type="submit">Sign it {resolveThemed(icons.pen, scheme)}</Button>
+          <Button type="submit">Sign it {resolveThemed(icons.pen, theme)}</Button>
         </Form>
       </Card>
     </Stack>
